@@ -18,12 +18,22 @@ char * get_input(){
 
 
 int main (int argc, char *argv[]){
-  //Se obtiene la ip y el puerto donde está escuchando el servidor (la ip y puerto de este cliente da igual)
+  // Se obtiene la IP y el PORT donde está escuchando el servidor dada por los args, si no se entregan se usan valores default
   char * IP = "0.0.0.0";
   int PORT = 8080;
 
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+      IP = argv[i + 1];
+    } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+      PORT = atoi(argv[i + 1]);
+    }
+  }
+
   // Se prepara el socket
   printf("Conectando con el servidor...\n");
+  printf("IP: %s\n", IP);
+  printf("PORT: %d\n", PORT);
   int server_socket = prepare_socket(IP, PORT);
   printf("Conexión establecida\n");
 
