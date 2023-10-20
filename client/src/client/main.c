@@ -37,6 +37,19 @@ int main (int argc, char *argv[]){
   int server_socket = prepare_socket(IP, PORT);
   printf("Conexión establecida\n");
 
+  // Status de la session
+  // int current_session = 0;
+  // if (!current_session) {
+  //   printf("\n*** DCCorreo ***\n");
+  //   printf("----------------\n");
+  //   printf("[1] Registrarse\n");
+  //   printf("[2] Iniciar sesión\n");
+  //   printf("[X] Salir\n");
+  //   printf("\nIndique su opción (1, 2 o X): ");
+  //   char * option = get_input();
+  //   getchar();
+  // }
+
   // Se inicializa un loop para recibir todo tipo de paquetes y tomar una acción al respecto
   while (1) {
     int msg_code = client_receive_id(server_socket);
