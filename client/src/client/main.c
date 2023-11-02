@@ -75,7 +75,7 @@ int main (int argc, char *argv[]){
       client_send_message(server_socket, option, response);
     }
 
-    if (msg_code == 2) { //Recibimos un mensaje que proviene del otro cliente
+    else if (msg_code == 2) { //Recibimos un mensaje que proviene del otro cliente
       char * message = client_receive_payload(server_socket);
       printf("El otro cliente dice: %s\n", message);
       free(message);
@@ -89,6 +89,16 @@ int main (int argc, char *argv[]){
 
       client_send_message(server_socket, option, response);
     }
+
+    // Mensaje de error
+    else if (msg_code == 4) {
+      char * message = client_receive_payload(server_socket);
+      printf("El servidor dice: %s\n", message);
+      // free(message);
+      // printf("Maximum number of connections reached. Please try again later.\n");
+      break;
+    }
+
     printf("------------------\n");
   }
 
