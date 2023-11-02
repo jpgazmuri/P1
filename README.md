@@ -3,5 +3,8 @@ Repositorio para la entrega P1 de Sistemas Operativos y Redes de los alumnos Jos
 
 ## IDs de mensajes
 A continuación se describe la lógica detrás de la asignación de IDs para los mensajes utilizados en el servidor:
-1. ...
+0. Mensaje de bienvenida del servidor
+1. Menús de la aplicación
 2. ...
+3. ...
+4. Errors
