@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -9,6 +10,18 @@
 #include <netdb.h>
 #include <pthread.h>
 #include "comunication.h"
+// #include "../others/users.h"
+// #pragma once
+
+typedef struct user {
+  char *username;
+  int is_logged;  // 0 logged out, 1 logged in
+} User;
+
+typedef struct users_info {
+  int num_users;
+  User * users_list[6];
+} UsersInfo;
 
 typedef struct players_info{
   int socket_c1;
@@ -27,6 +40,8 @@ typedef struct client {
   int client_socket;
   int client_number;
   ClientsInfo *clients_info;
+  UsersInfo *users_info;
+  User *user;
 } Client;
 
 typedef struct client_info {
@@ -36,11 +51,8 @@ typedef struct client_info {
   int *num_clients;
 } ClientInfo;
 
-// typedef struct users_info {
-//   char users[6][11];
-// } UsersInfo;
 
-
+int check_username(char username, UsersInfo *users_info);
 PlayersInfo * prepare_sockets_and_get_clients(char * IP, int port);
-ClientsInfo * connections_handler(char * IP, int port);
+ClientsInfo * connections_handler(char * IP, int port, UsersInfo *users_info);
 void * client_handler(void *arg);

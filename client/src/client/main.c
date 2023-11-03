@@ -60,35 +60,84 @@ int main (int argc, char *argv[]){
       free(message);
     }
     
-    else if (msg_code == 1) { //Recibimos un mensaje del servidor
+    // else if (msg_code == 1) { //Recibimos un mensaje del servidor
+    //   char * message = client_receive_payload(server_socket);
+    //   printf("El servidor dice: %s\n", message);
+    //   free(message);
+
+    //   printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
+    //   int option = getchar() - '0';
+    //   getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
+      
+    //   printf("Ingrese su mensaje: ");
+    //   char * response = get_input();
+
+    //   client_send_message(server_socket, option, response);
+    // }
+    
+    // Se nos envía el menú de inicio
+    else if (msg_code == 1) {
       char * message = client_receive_payload(server_socket);
-      printf("El servidor dice: %s\n", message);
+      printf("%s", message);
       free(message);
 
-      printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
+      // printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
       int option = getchar() - '0';
       getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
-      
-      printf("Ingrese su mensaje: ");
-      char * response = get_input();
-
-      client_send_message(server_socket, option, response);
+      printf("\n");
+      if (option == 0) {
+        // Terminar ejecución
+        printf("Se cierra la app\n");
+        char * response = "";
+        client_send_message(server_socket, option, response);
+        exit(1);
+      } else if (option == 1) {
+        printf("Ingrese su nombre de usuario para registrarse: ");
+        char * response = get_input();
+        printf("\n");
+        client_send_message(server_socket, option, response);
+      } else if (option == 2) {
+        printf("Ingrese su nombre de usuario para iniciar sesión: ");
+        char * response = get_input();
+        printf("\n");
+        client_send_message(server_socket, option, response);
+      }
     }
-
-    else if (msg_code == 2) { //Recibimos un mensaje que proviene del otro cliente
+    
+    else if (msg_code == 2) {
       char * message = client_receive_payload(server_socket);
-      printf("El otro cliente dice: %s\n", message);
+      printf("%s", message);
       free(message);
 
-      printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
       int option = getchar() - '0';
       getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
-      
-      printf("Ingrese su mensaje: ");
-      char * response = get_input();
-
-      client_send_message(server_socket, option, response);
+      char * response = "";
+      printf("\n");
+      if (option == 0) {
+        // Terminar ejecución
+        printf("Se cierra la app\n");
+        client_send_message(server_socket, option, response);
+        exit(1);
+      } else {
+        client_send_message(server_socket, option, response);
+        printf("\n");
+      }
     }
+
+    // else if (msg_code == 2) { //Recibimos un mensaje que proviene del otro cliente
+    //   char * message = client_receive_payload(server_socket);
+    //   printf("El otro cliente dice: %s\n", message);
+    //   free(message);
+
+    //   printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
+    //   int option = getchar() - '0';
+    //   getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
+      
+    //   printf("Ingrese su mensaje: ");
+    //   char * response = get_input();
+
+    //   client_send_message(server_socket, option, response);
+    // }
 
     // Mensaje de error
     else if (msg_code == 4) {

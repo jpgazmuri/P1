@@ -13,47 +13,15 @@
 //https://www.man7.org/linux/man-pages/man2/bind.2.html
 //https://www.man7.org/linux/man-pages/man2/accept.2.html
 
-// void *client_handler(void *arg) {
-//   ClientInfo *client_info = (ClientInfo *)arg;
-//   int client_socket = client_info->client_socket;
-//   int client_number = client_info->client_number;
+int check_username(char username, UsersInfo *users_info) {
+  for (int i = 0; i < users_info->num_users; i++) {
+    if (username == *users_info->users_list[i]->username) {
+      return i + 1;
+    }
+  }
 
-//   // Determine the client number based on the client socket
-//   // for (int i = 0; i < 4; i++) {
-//   //   if (client_sockets[i] == client_socket) {
-//   //     client_number = i + 1;
-//   //     break;
-//   //   }
-//   // }
-
-//   // while (1) {
-//   //   int msg_code = server_receive_id(client_socket);
-
-//   //   if (msg_code == 1) { // Message from client to server
-//   //     char *client_message = server_receive_payload(client_socket);
-//   //     printf("Client %d says: %s\n", client_number, client_message);
-
-//   //     // Send the inverted message back to the client
-//   //     char *response = revert(client_message);
-//   //     server_send_message(client_socket, 1, response);
-//   //   } else if (msg_code == 2) { // Message from client to another client
-//   //     char *client_message = server_receive_payload(client_socket);
-//   //     printf("Server forwarding message from %d to %d: %s\n", client_number, ((client_number % 4) + 1), client_message);
-
-//   //     // Send the message to the next client in the array
-//   //     int next_client = (client_number % 4);
-//   //     server_send_message(client_info->client_sockets[next_client], 2, client_message);
-//   //   }
-//   // }
-
-//   // Handle disconnection and cleanup here
-//   // ...
-//   client_info->client_sockets[client_number - 1] = 0; // Mark the slot as empty
-//   (*client_info->num_clients)--;
-//   close(client_socket);
-//   pthread_exit(NULL);
-// }
-
+  return 0;
+}
 
 PlayersInfo * prepare_sockets_and_get_clients(char * IP, int port){
   // Se define la estructura para almacenar info del socket del servidor al momento de su creación
@@ -187,10 +155,18 @@ PlayersInfo * prepare_sockets_and_get_clients(char * IP, int port){
   return sockets_clients;
 };
 
-ClientsInfo * connections_handler(char * IP, int port) {
-  int server_socket, client_sockets[MAX_CLIENTS], num_clients = 0;
+ClientsInfo * connections_handler(char * IP, int port, UsersInfo *users_info) {
+  // ClientsInfo * clients_info = calloc(1, sizeof(ClientsInfo));
+  int client_sockets[MAX_CLIENTS];
+  // int server_socket, num_clients = 0;
+  int server_socket;
   struct sockaddr_in server_addr, client_addr;
   socklen_t addr_len = sizeof(client_addr);
+  
+  ClientsInfo * clients_info = malloc(sizeof(ClientInfo));
+  clients_info->num_clients = 0;
+  // UsersInfo * users_info = calloc(1, sizeof(UsersInfo));
+  // users_info->num_users = 0;
 
   // Create server socket
   // int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -230,9 +206,8 @@ ClientsInfo * connections_handler(char * IP, int port) {
   // Initialize client sockets array
   for (int i = 0; i < MAX_CLIENTS; i++) {
     client_sockets[i] = -1;
+    clients_info->client_sockets[i] = -1;
   }
-
-  ClientsInfo * clients_info = malloc(sizeof(ClientInfo));
 
   printf("Waiting for clients to connect...\n");
   while (1) {
@@ -240,19 +215,22 @@ ClientsInfo * connections_handler(char * IP, int port) {
     if (new_socket == -1) {
       perror("Accept failed");
     } else {
-      if (num_clients < MAX_CLIENTS) {
+      if (clients_info->num_clients < MAX_CLIENTS) {
         // Can accept more clients
         for (int i = 0; i < MAX_CLIENTS; i++) {
-          if (client_sockets[i] == -1) {
+          if (clients_info->client_sockets[i] == -1) {
             client_sockets[i] = new_socket;
             clients_info->client_sockets[i] = new_socket;
-            num_clients++;
+            clients_info->num_clients++;
 
             // Create a thread to handle the new client
+            // Client client = {new_socket, i + 1, clients_info};
+            Client client = {new_socket, i + 1, clients_info, users_info, NULL};
             pthread_t tid;
-            pthread_create(&tid, NULL, client_handler, &client_sockets[i]);
+            pthread_create(&tid, NULL, client_handler, &client);
+            // pthread_create(&tid, NULL, client_handler, &client_sockets[i]);
 
-            printf("Client %d connected!\n", i+1);
+            printf("Client %d connected to socket %d!\n", i+1, new_socket);
             break;
           }
         }
@@ -270,7 +248,11 @@ ClientsInfo * connections_handler(char * IP, int port) {
 }
 
 void * client_handler(void * arg) {
-  int client_socket = *((int*)arg);
+  // int client_socket = *((int*)arg);
+  Client * client = (Client *)arg;
+  // UsersInfo * users_info = client->users_info;
+  int client_socket = client->client_socket;
+  int is_logged = 0;
 
   // Send a welcome message and options to the client
   char * welcome_message = "¡Bienvenido a DCCorreo!";
@@ -292,22 +274,177 @@ void * client_handler(void * arg) {
   "[X] Salir de la aplicación\n"
   "\nIndique su opción (1, 2, 3 o X): ";
 
-  server_send_message(client_socket, 0, welcome_message);
+  // Menú de inicio
+  while (!is_logged) {
+    server_send_message(client_socket, 1, first_menu);
+    // Mientras el cliente no haya iniciado sesión, se muestra el menú de inicio
+    printf("Menú de inicio\n");
 
-  // Primera interacción
-  while (1) {
-    char buffer[1024];
-    int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
-    if (bytes_received <= 0) {
-      if (bytes_received == 0) {
-        printf("Client in socket %d has disconnected\n", client_socket);
-      } else {
-        perror("Receive error");
-      }
+    int msg_code = server_receive_id(client_socket);
+    printf("Message code: %d\n", msg_code);
+    if (msg_code == 0) {
+      // Salió de la app
+      printf("Client in socket %d has disconnected\n", client_socket);
       close(client_socket);
-      return NULL;
+      client->clients_info->client_sockets[client->client_number - 1] = -1;
+      client->clients_info->num_clients--;
+      break;
+    }
+    else if (msg_code == 1) {
+      // Registro
+      char * username = server_receive_payload(client_socket);
+      printf("Username for register: %s\n", username);
+
+      if (strlen(username) < 1 || strlen(username) > 10) {
+        printf("Username doesn't satisfy format\n");
+        char * error_msg = "El nombre de usuario no es válido, debe ser entre 1 y 10 carácteres.";
+        server_send_message(client_socket, 0, error_msg);
+      }
+      else {
+        if (client->users_info->num_users >= 6) {
+          // Límite de registros alcanzado
+          char * error_msg = "El límite de usuarios registrados ha sido alcanzado\n";
+          server_send_message(client_socket, 0, error_msg);
+        }
+        else if (check_username(*username, client->users_info)) {
+          char * error_msg = "El nombre de usuario ya está registrado\n";
+          server_send_message(client_socket, 0, error_msg);
+        }
+        else {
+          User *new_user = calloc(1, sizeof(User));
+          new_user->username = username;
+          new_user->is_logged = 1;
+          printf("New user %s with logged in status %d\n", new_user->username, new_user->is_logged);
+          client->users_info->users_list[client->users_info->num_users] = new_user;
+          client->users_info->num_users++;
+          client->user = new_user;
+          is_logged = 1;
+        }
+      }
+    } 
+    else if (msg_code == 2) {
+      // Login
+      char * username = server_receive_payload(client_socket);
+      printf("Username for login: %s\n", username);
+
+      if (strlen(username) < 1 || strlen(username) > 10) {
+        printf("Username doesn't satisfy format\n");
+        char * error_msg = "El nombre de usuario no es válido, debe ser entre 1 y 10 carácteres.";
+        server_send_message(client_socket, 0, error_msg);
+      }
+      else {
+        if (!check_username(*username, client->users_info)) {
+          char * error_msg = "El nombre de usuario no existe\n";
+          server_send_message(client_socket, 0, error_msg);
+        }
+        else {
+          int user_index = check_username(*username, client->users_info) - 1;
+          if (client->users_info->users_list[user_index]->is_logged) {
+            printf("User #%d with username %s is already logged in\n", user_index + 1, client->users_info->users_list[user_index]->username);
+            char *error_msg = "Este usuario está actualmente conectado, intente más tarde\n";
+            server_send_message(client_socket, 0, error_msg);
+          }
+          else {
+            client->user = client->users_info->users_list[user_index];
+            client->user->is_logged = 1;
+            printf("Client %s logged in to user #%d with username %s\n", username, user_index + 1, client->user->username);
+            is_logged = 1;
+          }
+        }
+      }
     } else {
-      ;
+      char * error_msg = "Esa no es una opción válida, intente nuevamente.\n";
+      server_send_message(client_socket, 0, error_msg);
     }
   }
+
+  printf("\nLista de usuarios:\n");
+  for (int i = 0; i < client->users_info->num_users; i++) {
+    printf("User #%d: %s - logged? %d\n", i + 1, client->users_info->users_list[i]->username, client->users_info->users_list[i]->is_logged);
+  }
+  printf("\n");
+
+  // Menú principal
+  while (is_logged) {
+    server_send_message(client_socket, 2, main_menu);
+    printf("Menú principal\n");
+    
+    int msg_code = server_receive_id(client_socket);
+    printf("Message code: %d\n", msg_code);
+    if (msg_code == 0) {
+      // Salir app
+      printf("Client in socket %d has disconnected\n", client_socket);
+      close(client_socket);
+      client->clients_info->client_sockets[client->client_number - 1] = -1;
+      client->clients_info->num_clients--;
+      client->user->is_logged = 0;
+      break;
+    } else if (msg_code == 1) {
+      // Enviar correo electrónico
+      ;
+    } else if (msg_code == 2) {
+      // Ver correos enviados y recibidos
+      ;
+    } else if (msg_code == 3) {
+      // Ver usuarios conectados y desconectados
+      char *response = malloc(512);
+      char *connected_users = malloc(512);
+      char *disconnected_users = malloc(512);
+
+      strcpy(response, "\n*** Usuarios Conectados ***\n");
+      strcat(response, "---------------------------\n");
+      int n_connected = 0, n_disconnected = 0;
+      for (int i = 0; i < client->users_info->num_users; i++) {
+        User *current_user = client->users_info->users_list[i];
+        char entry[512];
+        if (current_user->is_logged) {
+          snprintf(entry, sizeof(entry), "[%d] %s\n", n_connected + 1, client->users_info->users_list[i]->username);
+          n_connected++;
+          strcat(connected_users, entry);
+        }
+        else {
+          snprintf(entry, sizeof(entry), "[%d] %s\n", n_disconnected + 1, client->users_info->users_list[i]->username);
+          n_disconnected++;
+          strcat(disconnected_users, entry);
+        }
+        // snprintf(entry, sizeof(entry), "[%d] %s\n", i + 1, client->users_info->users_list[i]->username);
+        // strcat(response, entry);
+        // strcat(response, "[");
+        // strcat(response, i + 1);
+        // strcat(response, "] ");
+        // strcat(response, client->users_info->users_list[i]);
+        // strcat(response, "\n");
+      }
+
+      if (n_connected > 0) {
+        strcat(response, connected_users);
+      }
+      else {
+        strcat(response, "No hay usuarios conectados\n");
+      }
+      // strcat(response, "\n");
+      strcat(response, "\n*** Usuarios Desconectados ***\n");
+      strcat(response, "------------------------------\n");
+      if (n_disconnected > 0) {
+        strcat(response, disconnected_users);
+      }
+      else {
+        strcat(response, "No hay usuarios desconectados\n");
+      }
+      strcat(response, "\n");
+      server_send_message(client_socket, 0, response);
+      free(response);
+      free(connected_users);
+      free(disconnected_users);
+    } else {
+      char * error_msg = "Opción no válida, intente nuevamente.\n";
+      server_send_message(client_socket, 0, error_msg);
+    }
+  }
+  return NULL;
 }
+
+// bool check_username(char user, char * users_list[6]) {
+//   // Función que revisa si el usuario se encuentra registrado o no, retorna 1 si está en la lista y 0 si no
+//   ;
+// }

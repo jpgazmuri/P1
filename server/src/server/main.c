@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../sockets/comunication.h"
+// #include "../others/users.h"
 #include "../sockets/conection.h"
 
 char * revert(char * message){
@@ -36,7 +37,9 @@ int main(int argc, char *argv[]){
   printf("Selected IP: %s\n", IP);
   printf("Selected Port: %d\n", PORT);
   // PlayersInfo * players_info = prepare_sockets_and_get_clients(IP, PORT);
-  ClientsInfo * clients_info = connections_handler(IP, PORT);
+
+  UsersInfo *users_info = calloc(1, sizeof(UsersInfo));
+  ClientsInfo * clients_info = connections_handler(IP, PORT, users_info);
 
   // // Le enviamos al primer cliente un mensaje
   // char * first_message = "Hola cliente 1!";
@@ -77,6 +80,8 @@ int main(int argc, char *argv[]){
   //   }
   //   printf("------------------\n");
   // }
+
+  free(users_info);
 
   return 0;
 }
