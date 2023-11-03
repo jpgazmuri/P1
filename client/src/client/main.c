@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <signal.h>
 #include "../sockets/conection.h"
 #include "../sockets/comunication.h"
 
@@ -37,118 +38,242 @@ int main (int argc, char *argv[]){
   int server_socket = prepare_socket(IP, PORT);
   printf("Conexión establecida\n");
 
-  // Status de la session
-  // int current_session = 0;
-  // if (!current_session) {
-  //   printf("\n*** DCCorreo ***\n");
-  //   printf("----------------\n");
-  //   printf("[1] Registrarse\n");
-  //   printf("[2] Iniciar sesión\n");
-  //   printf("[X] Salir\n");
-  //   printf("\nIndique su opción (1, 2 o X): ");
-  //   char * option = get_input();
-  //   getchar();
-  // }
-
   // Se inicializa un loop para recibir todo tipo de paquetes y tomar una acción al respecto
   while (1) {
     int msg_code = client_receive_id(server_socket);
 
-    if (msg_code == 0) { // Servidor envía mensaje de conexión inicial
+    // Mensajes singulares de servidor a cliente
+    if (msg_code == 0) {
       char * message = client_receive_payload(server_socket);
-      printf("El servidor dice: %s\n", message);
+      // printf("El servidor dice: %s\n", message);
+      printf("%s\n", message);
       free(message);
     }
-    
-    // else if (msg_code == 1) { //Recibimos un mensaje del servidor
-    //   char * message = client_receive_payload(server_socket);
-    //   printf("El servidor dice: %s\n", message);
-    //   free(message);
 
-    //   printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
-    //   int option = getchar() - '0';
-    //   getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
-      
-    //   printf("Ingrese su mensaje: ");
-    //   char * response = get_input();
-
-    //   client_send_message(server_socket, option, response);
-    // }
-    
-    // Se nos envía el menú de inicio
     else if (msg_code == 1) {
+      // Server envía al Menú de Inicio
       char * message = client_receive_payload(server_socket);
       printf("%s", message);
       free(message);
 
-      // printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
+      char *initial_menu = 
+      "\n*** DCCorreo ***\n"
+      "----------------\n"
+      "[1] Registrarse\n"
+      "[2] Iniciar sesión\n"
+      "[0] Salir\n"
+      "\nIndique su opción (1, 2 o 0): ";
+
+      printf("%s", initial_menu);
       int option = getchar() - '0';
-      getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
+      getchar();
       printf("\n");
-      if (option == 0) {
-        // Terminar ejecución
-        printf("Se cierra la app\n");
-        char * response = "";
-        client_send_message(server_socket, option, response);
-        exit(1);
-      } else if (option == 1) {
-        printf("Ingrese su nombre de usuario para registrarse: ");
-        char * response = get_input();
+
+      if (option == 0) {  // Terminar ejecución
+        printf("Cerrando la app...\n");
+
+        char *response = "";
+        client_send_message(server_socket, 0, response);
+
+        // clean memory
+
+        raise(SIGINT);
+      }
+
+      else if (option == 1) { // Register, code: 1
+        printf("Ingrese el nombre de usuario con el que desea registrarse: ");
+        char *username = get_input();
         printf("\n");
-        client_send_message(server_socket, option, response);
-      } else if (option == 2) {
-        printf("Ingrese su nombre de usuario para iniciar sesión: ");
-        char * response = get_input();
+
+        client_send_message(server_socket, 1, username);
+      }
+      
+      else if (option == 2) { // Login, code: 2
+        printf("Ingrese su nombre de usuario: ");
+        char *username = get_input();
         printf("\n");
-        client_send_message(server_socket, option, response);
+
+        client_send_message(server_socket, 2, username);
       }
     }
-    
+
     else if (msg_code == 2) {
+      // Bandeja de entrada
       char * message = client_receive_payload(server_socket);
       printf("%s", message);
       free(message);
 
+      char * main_menu =
+      "\n*** Bandeja de Entrada ***\n"
+      "--------------------------\n"
+      "[1] Enviar correo electrónico\n"
+      "[2] Ver correos enviados y recibidos\n"
+      "[3] Ver usuarios conectados y desconectados\n"
+      "[0] Salir de la aplicación\n"
+      "\nIndique su opción (1, 2, 3 o 0): ";
+
+      printf("%s", main_menu);
       int option = getchar() - '0';
       getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
       char * response = "";
       printf("\n");
+
       if (option == 0) {
-        // Terminar ejecución
+        // Salir aplicación
         printf("Se cierra la app\n");
-        client_send_message(server_socket, option, response);
-        exit(1);
-      } else {
-        client_send_message(server_socket, option, response);
+        client_send_message(server_socket, 0, response);
+        raise(SIGINT);
+      }
+      else if (option == 1) {
+        // Enviar correo
+        char * message_commands =
+        "\n*** Enviar Mensaje ***\n"
+        "----------------------\n"
+        "Utilice alguno de los siguientes comandos:\n"
+        "Mensaje inmediato de texto:\t it,<destinatario>,<contenido>\n"
+        "Mensaje inmediato de archivo:\t if,<destinatario>,<nombre_archivo>.<ext>\n"
+        "Mensaje programado de texto:\t pt,<destinatario>,<contenido>,<s>\n"
+        "Mensaje programado de archivo:\t pf,<destinatario>,<nombre_archivo>.<ext>,<s>\n\n";
+
+        char input[256];
+        printf("%s", message_commands);
+        printf("Escriba el comando apropiado para su mensaje: ");
+        fgets(input, sizeof(input), stdin);
+        printf("\n");
+
+        // char command[3], recipient[11], content[256];
+        // unsigned int seconds;
+
+        char *response;
+        response = strdup(input);
+        client_send_message(server_socket, 3, response);
+
+        // if (sscanf(input, "%2[^,],%10[^,],%255[^,],%u", command, recipient, content, &seconds) == 4) {
+        //   if (strcmp(command, "pt") == 0 || strcmp(command, "pf") == 0) {
+        //     // Se trata de un mensaje programado
+        //     printf("[%s] Programando un mensaje en %us desde ahora...\n", command, seconds);
+        //     char *response;
+        //     response = strdup(input);
+        //     // strcat(response, input);
+        //     int response_code;
+        //     if (strcmp(command, "pt") == 0) {
+        //       // code 5
+        //       response_code = 3;
+        //     }
+        //     else {
+        //       response_code = 3;
+        //     }
+        //     client_send_message(server_socket, response_code, response);
+        //   }
+        //   else {
+        //     printf("Comando inválido\n");
+        //   }
+        // }
+        // else if (sscanf(input, "%2[^,],%10[^,],%255[^,]", command, recipient, content) == 3) {
+        //   if (strcmp(command, "it") == 0 || strcmp(command, "if") == 0) {
+        //     // Se trata de un mensaje inmediato
+        //     printf("Enviando un mensaje inmediato...\n");
+        //     char *response;
+        //     response = strdup(input);
+        //     // strcat(response, input);
+        //     int response_code;
+        //     if (strcmp(command, "it") == 0) {
+        //       // code 3
+        //       response_code = 3;
+        //     }
+        //     else {
+        //       // code 4
+        //       response_code = 3;
+        //     }
+        //     client_send_message(server_socket, response_code, response);
+        //   }
+        //   else {
+        //     printf("Comando inválido\n");
+        //   }
+        // }
+        // else {
+        //   printf("El formato del comando es inválido\n");
+        // }
+      }
+      else if (option == 2) {
+        // Ver correos enviados y recibidos
+        ;
+      }
+      else if (option == 3) {
+        // Usuarios conectados y desconectados
+        char * response = "";
+        client_send_message(server_socket, 8, response);
         printf("\n");
       }
     }
 
-    // else if (msg_code == 2) { //Recibimos un mensaje que proviene del otro cliente
-    //   char * message = client_receive_payload(server_socket);
-    //   printf("El otro cliente dice: %s\n", message);
+    // else if (msg_code == 3) { // Enviar mensaje
+    //   char *message = client_receive_payload(server_socket);
+    //   printf("%s", message);
     //   free(message);
 
-    //   printf("¿Qué desea hacer?\n   1)Enviar mensaje al servidor\n   2)Enviar mensaje al otro cliente\n");
-    //   int option = getchar() - '0';
-    //   getchar(); //Para capturar el "enter" que queda en el buffer de entrada stdin
-      
-    //   printf("Ingrese su mensaje: ");
-    //   char * response = get_input();
+    //   char * message_commands =
+    //   "\n*** Enviar Mensaje ***\n"
+    //   "----------------------\n"
+    //   "Utilice alguno de los siguientes comandos:\n"
+    //   "Mensaje de texto inmediato:\t it,<destinatario>,<contenido>\n"
+    //   "Mensaje de archivo inmediato:\t if,<destinatario>,<nombre_archivo>.<ext>\n"
+    //   "Mensaje de texto programado:\t pt,<destinatario>,<contenido>,<s>\n"
+    //   "Mensaje de archivo programado:\t if,<destinatario>,<nombre_archivo>.<ext>,<s>\n\n";
 
-    //   client_send_message(server_socket, option, response);
+    //   char input[512];
+    //   printf("%s", message_commands);
+    //   printf("Escriba el comando apropiado para su mensaje: ");
+    //   fgets(input, sizeof(input), stdin);
+    //   printf("\n");
+
+    //   char command[3], recipient[11], content[256];
+    //   unsigned int seconds;
+
+    //   if (sscanf(input, "%2[^,],%10[^,],%255[^,],%u", command, recipient, content, &seconds) == 4) {
+    //     if (strcmp(command, "pt") == 0 || strcmp(command, "pf") == 0) {
+    //       // Se trata de un mensaje programado
+    //       printf("[%s] Programando un mensaje en %us desde ahora...\n", command, seconds);
+    //       char *response = "";
+    //       strcat(response, input);
+    //       int response_code;
+    //       if (strcmp(command, "pt") == 0) {
+    //         // code 5
+    //         response_code = 5;
+    //       }
+    //       else {
+    //         response_code = 6;
+    //       }
+    //       client_send_message(server_socket, response_code, response);
+    //     }
+    //     else {
+    //       printf("Comando inválido\n");
+    //     }
+    //   }
+    //   else if (sscanf(input, "%2[^,],%10[^,],%255[^,]", command, recipient, content) == 3) {
+    //     if (strcmp(command, "it") == 0 || strcmp(command, "if") == 0) {
+    //       // Se trata de un mensaje inmediato
+    //       printf("Enviando un mensaje inmediato...\n");
+    //     }
+    //     else {
+    //       printf("Comando inválido\n");
+    //     }
+    //   }
+    //   else {
+    //     printf("El formato del comando es inválido\n");
+    //   }
     // }
 
-    // Mensaje de error
-    else if (msg_code == 4) {
-      char * message = client_receive_payload(server_socket);
-      printf("El servidor dice: %s\n", message);
-      // free(message);
-      // printf("Maximum number of connections reached. Please try again later.\n");
-      break;
-    }
+    // // Mensaje de error
+    // else if (msg_code == 4) {
+    //   char * message = client_receive_payload(server_socket);
+    //   printf("El servidor dice: %s\n", message);
+    //   // free(message);
+    //   // printf("Maximum number of connections reached. Please try again later.\n");
+    //   break;
+    // }
 
-    printf("------------------\n");
+    // printf("------------------\n");
   }
 
   // Se cierra el socket

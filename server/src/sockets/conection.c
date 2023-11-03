@@ -23,139 +23,7 @@ int check_username(char username, UsersInfo *users_info) {
   return 0;
 }
 
-PlayersInfo * prepare_sockets_and_get_clients(char * IP, int port){
-  // Se define la estructura para almacenar info del socket del servidor al momento de su creación
-  struct sockaddr_in server_addr;
-
-  // Se solicita un socket al SO, que se usará para escuchar conexiones entrantes
-  int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-  // Se configura el socket a gusto (recomiendo fuertemente el REUSEPORT!)
-  int opt = 1;
-  int ret = setsockopt(server_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
-
-  // Se guardan el puerto e IP en la estructura antes definida
-  memset(&server_addr, 0, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  inet_aton(IP, &server_addr.sin_addr);
-  server_addr.sin_port = htons(port);
-
-  // Se le asigna al socket del servidor un puerto y una IP donde escuchar
-  int ret2 = bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr));
-
-  // Se coloca el socket en modo listening
-  int ret3 = listen(server_socket, 1);
-
-  // Se definen las estructuras para almacenar info sobre los sockets de los clientes
-  struct sockaddr_in client_addr;
-  // struct sockaddr_in client1_addr;
-  // struct sockaddr_in client2_addr;
-  // struct sockaddr_in client3_addr;
-  // struct sockaddr_in client4_addr;
-  socklen_t addr_size = sizeof(client_addr);
-
-  // Se inicializa una estructura propia para guardar los n°s de sockets de los clientes.
-  PlayersInfo * sockets_clients = malloc(sizeof(PlayersInfo));
-
-  // // Se aceptan a los primeros 2 clientes que lleguen. "accept" retorna el n° de otro socket asignado para la comunicación
-  // printf("Esperando a que se conecte el primer cliente...\n");
-  // sockets_clients->socket_c1 = accept(server_socket, (struct sockaddr *)&client1_addr, &addr_size);
-  // printf("Primer cliente conectado!\n\n");
-
-  // // Le enviamos al primer cliente un mensaje de bienvenida
-  // char * welcome = "Bienvenido Cliente 1!!";
-  // server_send_message(sockets_clients->socket_c1, 0, welcome);
-
-  // printf("Esperando a que se conecte el segundo cliente...\n");
-  // sockets_clients->socket_c2 = accept(server_socket, (struct sockaddr *)&client2_addr, &addr_size);
-  // printf("Segundo cliente conectado!\n\n");
-
-  // // Le enviamos al segundo cliente un mensaje de bienvenida
-  // welcome = "Bienvenido Cliente 2!!";
-  // server_send_message(sockets_clients->socket_c2, 0, welcome);
-
-  int client_sockets[4] = {0};
-  int num_clients = 0;
-
-  printf("Waiting for clients to connect...\n");
-  while (1) {
-    if (num_clients < 4) {
-      int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_size);
-
-      for (int i = 0; i < 4; i++) {
-        if (client_sockets[i] == 0) {
-          // Use an empty slot to store the new client socket
-          client_sockets[i] = client_socket;
-          num_clients++;
-          printf("Client %d connected!\n", i + 1);
-          // printf("Client socket: %d\n", client_socket);
-
-          // Send a welcome message to the new client
-          char welcome_message[50];
-          snprintf(welcome_message, sizeof(welcome_message), "Welcome, Client %d!", i + 1);
-          server_send_message(client_socket, 0, welcome_message);
-
-          // // Create a thread to handle this client
-          // pthread_t client_thread;
-          // ClientInfo client_info = {client_socket, i + 1, client_sockets, &num_clients};
-          // pthread_create(&client_thread, NULL, client_handler, &client_info);
-
-          break;
-        }
-      }
-    } else {
-      for (int i = 0; i < 4; i++) {
-        if (client_sockets[i] != 0) {
-          if (recv(client_sockets[i], NULL, 0, MSG_PEEK | MSG_DONTWAIT) == 0) {
-            printf("Client %d disconnected!\n", i+1);
-            close(client_sockets[i]);
-            client_sockets[i] = 0;
-            num_clients--;
-          }
-        }
-      }
-    }
-  }
-
-  // // Se aceptan hasta 4 clientes
-  // printf("Waiting for clients to connect...\n");
-  // for (int i = 0; 1 < 4; i++) {
-  //   int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_size);
-
-  //   if (num_clients < 4) {
-  //     if (i == 0) {
-  //       sockets_clients->socket_c1 = client_socket;
-  //       printf("Client 1 connected!\n");
-  //       char * welcome = "Welcome Client 1!";
-  //       server_send_message(client_socket, 0, welcome);
-  //     } else if (i == 1) {
-  //       sockets_clients->socket_c2 = client_socket;
-  //       printf("Client 2 connected!\n");
-  //       char * welcome = "Welcome Client 2!";
-  //       server_send_message(client_socket, 0, welcome);
-  //     } else if (i == 2) {
-  //       sockets_clients->socket_c3 = client_socket;
-  //       printf("Client 3 connected!\n");
-  //       char * welcome = "Welcome Client 3!";
-  //       server_send_message(client_socket, 0, welcome);
-  //     }
-  //     else if (i == 3) {
-  //       sockets_clients->socket_c4 = client_socket;
-  //       printf("Client 4 connected!\n");
-  //       char * welcome = "Welcome Client 4!";
-  //       server_send_message(client_socket, 0, welcome);
-  //     }
-  //   } else {
-  //     char * message = "Maximum number of connections reached. Try again later...";
-  //     server_send_message(client_socket, 400, message);
-  //     close(client_socket);
-  //   }
-  // }
-
-  return sockets_clients;
-};
-
-ClientsInfo * connections_handler(char * IP, int port, UsersInfo *users_info) {
+void connections_handler(char * IP, int port, ClientsInfo *clients, UsersInfo *users_info) {
   // ClientsInfo * clients_info = calloc(1, sizeof(ClientsInfo));
   int client_sockets[MAX_CLIENTS];
   // int server_socket, num_clients = 0;
@@ -163,7 +31,7 @@ ClientsInfo * connections_handler(char * IP, int port, UsersInfo *users_info) {
   struct sockaddr_in server_addr, client_addr;
   socklen_t addr_len = sizeof(client_addr);
   
-  ClientsInfo * clients_info = malloc(sizeof(ClientInfo));
+  ClientsInfo *clients_info = clients;
   clients_info->num_clients = 0;
   // UsersInfo * users_info = calloc(1, sizeof(UsersInfo));
   // users_info->num_users = 0;
@@ -244,7 +112,6 @@ ClientsInfo * connections_handler(char * IP, int port, UsersInfo *users_info) {
   }
 
   close(server_socket);
-  return clients_info;
 }
 
 void * client_handler(void * arg) {
@@ -254,44 +121,35 @@ void * client_handler(void * arg) {
   int client_socket = client->client_socket;
   int is_logged = 0;
 
-  // Send a welcome message and options to the client
-  char * welcome_message = "¡Bienvenido a DCCorreo!";
-
-  char * first_menu = 
-  "\n*** DCCorreo ***\n"
-  "----------------\n"
-  "[1] Registrarse\n"
-  "[2] Iniciar sesión\n"
-  "[X] Salir\n"
-  "\nIndique su opción (1, 2 o X): ";
-
-  char * main_menu =
-  "\n*** Bandeja de Entrada ***\n"
-  "--------------------------\n"
-  "[1] Enviar correo electrónico\n"
-  "[2] Ver correos enviados y recibidos\n"
-  "[3] Ver usuarios conectados y desconectados\n"
-  "[X] Salir de la aplicación\n"
-  "\nIndique su opción (1, 2, 3 o X): ";
-
-  // Menú de inicio
-  while (!is_logged) {
-    server_send_message(client_socket, 1, first_menu);
-    // Mientras el cliente no haya iniciado sesión, se muestra el menú de inicio
-    printf("Menú de inicio\n");
+  while (1) {
+    if (!is_logged) {
+      char *message = "Enviando a Menú de Inicio...\n";
+      server_send_message(client_socket, 1, message);
+      printf("Menú de Inicio\n");
+    }
+    else {
+      char *message = "Enviando a Bandeja de Entrada...\n";
+      server_send_message(client_socket, 2, message);
+      printf("Bandeja de entrada\n");
+    }
 
     int msg_code = server_receive_id(client_socket);
     printf("Message code: %d\n", msg_code);
+
     if (msg_code == 0) {
-      // Salió de la app
+      // Exit App
       printf("Client in socket %d has disconnected\n", client_socket);
       close(client_socket);
       client->clients_info->client_sockets[client->client_number - 1] = -1;
       client->clients_info->num_clients--;
+      if (is_logged) {
+        client->user->is_logged = 0;
+      }
       break;
     }
+
     else if (msg_code == 1) {
-      // Registro
+      // Register
       char * username = server_receive_payload(client_socket);
       printf("Username for register: %s\n", username);
 
@@ -321,7 +179,8 @@ void * client_handler(void * arg) {
           is_logged = 1;
         }
       }
-    } 
+    }
+
     else if (msg_code == 2) {
       // Login
       char * username = server_receive_payload(client_socket);
@@ -352,41 +211,150 @@ void * client_handler(void * arg) {
           }
         }
       }
-    } else {
-      char * error_msg = "Esa no es una opción válida, intente nuevamente.\n";
-      server_send_message(client_socket, 0, error_msg);
     }
-  }
 
-  printf("\nLista de usuarios:\n");
-  for (int i = 0; i < client->users_info->num_users; i++) {
-    printf("User #%d: %s - logged? %d\n", i + 1, client->users_info->users_list[i]->username, client->users_info->users_list[i]->is_logged);
-  }
-  printf("\n");
+    else if (msg_code == 3) {
+      // Send Message
+      char * message = server_receive_payload(client_socket);
+      printf("Received message: %s\n", message);
 
-  // Menú principal
-  while (is_logged) {
-    server_send_message(client_socket, 2, main_menu);
-    printf("Menú principal\n");
+      // HACER REVISIONES DEL MENSAJE: TIPO, VALIDACIONES, CHECKEAR USUARIO, ARMAR EL STRUCT MESSAGE, ARMAR EL MESSAGE_LIST, AGREGAR EL NUEVO MENSAJE AL FINAL
+
+      // int is_valid = 1;
+
+      // char command[3], recipient[11], content[256];
+      // unsigned int seconds;
+
+      // if (sscanf(message, "%2[^,],%10[^,],%255[^,],%u", command, recipient, content, &seconds) == 4) {
+      //   printf("[%s] Programando un mensaje en %us desde ahora...\n", command, seconds);
+      //   if (strcmp(command, "pt") == 1 && strcmp(command, "pf") == 1) {
+      //     is_valid = 0;
+      //   }
+      //   if (seconds < 1 || seconds > 255) {
+      //     is_valid = 0;
+      //   }
+      // }
+      // else if (sscanf(message, "%2[^,],%10[^,],%255[^,]", command, recipient, content) == 3) {
+      //   printf("Enviando un mensaje inmediato...\n");
+      //   if (strcmp(command, "it") == 1 && strcmp(command, "if") == 1) {
+      //     is_valid = 0;
+      //   }
+      // }
+      // else {
+      //   printf("El formato del comando es inválido\n");
+      //   is_valid = 0;
+      // }
+
+      // // verificar largo del contenido
+
+      // int index_recipient = check_username(recipient, client->users_info) - 1;
+      // if (index_recipient == -1) {
+      //   is_valid = 0;
+      // }
+
+      // if (is_valid) {
+      //   User *recipient = client->users_info->users_list[index_recipient];
+
+      //   Message *new_message = malloc(sizeof(Message));
+      //   new_message->sender = client->user->username;
+      //   new_message->recipient = client->users_info->users_list[index_recipient]->username;
+      //   *new_message->content = *content;
+
+      //   if (strcmp(command, "it") == 0) {
+      //     new_message->message_type = 0;
+      //     new_message->is_downloaded = 1;
+      //   }
+      //   else if (strcmp(command, "if") == 0) {
+      //     new_message->message_type = 1;
+      //     new_message->is_downloaded = 0;
+      //   }
+
+      //   MessageList *new_sent = calloc(1, sizeof(MessageList));
+      //   new_sent->message = new_message;
+
+      //   MessageList *new_received = calloc(1, sizeof(MessageList));
+      //   new_received->message = new_message;
+
+      //   if (!client->user->sent_messages) {
+      //     client->user->sent_messages = new_sent;
+      //   } else {
+      //     MessageList *current_message_list = client->user->sent_messages;
+      //     while (1) {
+      //       if (current_message_list->next) {
+      //         current_message_list = current_message_list->next;
+      //       }
+      //       else {
+      //         current_message_list->next = new_sent;
+      //         break;
+      //       }
+      //     }
+      //   }
+        
+      //   if (!recipient->sent_messages) {
+      //     recipient->sent_messages = new_received;
+      //   } else {
+      //     MessageList *current_message_list = recipient->sent_messages;
+      //     while (1) {
+      //       if (current_message_list->next) {
+      //         current_message_list = current_message_list->next;
+      //       }
+      //       else {
+      //         current_message_list->next = new_received;
+      //         break;
+      //       }
+      //     }
+      //   }
+        
+      //   // if (!recipient->received_messages) {
+      //   //   MessageList *received = calloc(1, sizeof(MessageList));
+      //   //   recipient->received_messages = received;
+      //   // }
+        
+
+      // }
+      
+      // printf("Mensajes enviados:\n");
+      // MessageList *root = client->user->sent_messages;
+      // while (1) {
+      //   if (root->message) {
+      //     printf("Mensaje enviado por %s a %s: %s\n", root->message->sender, root->message->recipient, root->message->content);
+      //   } else {
+      //     break;
+      //   }
+
+      //   if (root->next) {
+      //     root = root->next;
+      //   } else {
+      //     break;
+      //   }
+      // }
+    }
     
-    int msg_code = server_receive_id(client_socket);
-    printf("Message code: %d\n", msg_code);
-    if (msg_code == 0) {
-      // Salir app
-      printf("Client in socket %d has disconnected\n", client_socket);
-      close(client_socket);
-      client->clients_info->client_sockets[client->client_number - 1] = -1;
-      client->clients_info->num_clients--;
-      client->user->is_logged = 0;
-      break;
-    } else if (msg_code == 1) {
-      // Enviar correo electrónico
+    // else if (msg_code == 4) {
+    //   // Send Immediate File
+    //   char * message = server_receive_payload(client_socket);
+    //   printf("Received message: %s\n", message);
+    // }
+
+    // else if (msg_code == 5) {
+    //   // Send Programmed Text
+    //   char * message = server_receive_payload(client_socket);
+    //   printf("Received message: %s\n", message);
+    // }
+
+    // else if (msg_code == 6) {
+    //   // Send Programmed File
+    //   char * message = server_receive_payload(client_socket);
+    //   printf("Received message: %s\n", message);
+    // }
+
+    else if (msg_code == 7) {
+      // Correos enviados y recibidos
       ;
-    } else if (msg_code == 2) {
-      // Ver correos enviados y recibidos
-      ;
-    } else if (msg_code == 3) {
-      // Ver usuarios conectados y desconectados
+    }
+
+    else if (msg_code == 8) {
+      // Usuarios conectados y desconectados
       char *response = malloc(512);
       char *connected_users = malloc(512);
       char *disconnected_users = malloc(512);
@@ -407,13 +375,6 @@ void * client_handler(void * arg) {
           n_disconnected++;
           strcat(disconnected_users, entry);
         }
-        // snprintf(entry, sizeof(entry), "[%d] %s\n", i + 1, client->users_info->users_list[i]->username);
-        // strcat(response, entry);
-        // strcat(response, "[");
-        // strcat(response, i + 1);
-        // strcat(response, "] ");
-        // strcat(response, client->users_info->users_list[i]);
-        // strcat(response, "\n");
       }
 
       if (n_connected > 0) {
@@ -436,11 +397,15 @@ void * client_handler(void * arg) {
       free(response);
       free(connected_users);
       free(disconnected_users);
-    } else {
-      char * error_msg = "Opción no válida, intente nuevamente.\n";
+    }
+
+    else {
+      // Not valid code
+      char * error_msg = "Opción no válida.\n";
       server_send_message(client_socket, 0, error_msg);
     }
   }
+
   return NULL;
 }
 
